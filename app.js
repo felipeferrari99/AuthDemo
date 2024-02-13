@@ -1,8 +1,8 @@
 const express = require("express");
 const app = express();
 const path = require("path");
-const bcrypt = require("bcrypt");
 const session = require("express-session");
+const User = require('./models/user');
 const connection = require('./db');
 
 app.set("view engine", "ejs");
@@ -33,35 +33,21 @@ app.get('/register', (req, res) => {
 
 app.post('/register', async (req, res) => {
     const { username, password } = req.body;
-    const hash = await bcrypt.hash(password, 12);
-    connection.query('INSERT INTO users (username, password) VALUES (?, ?)', [username, hash], function (err) {
-        if (err) {
-            console.log("NOT ALLOWED!!!")
-        } else {
-            res.redirect('/');
-        }
+    const hashedPassword = await User.hashPassword(password);
+    connection.query('INSERT INTO users (username, password) VALUES (?, ?)', [username, hashedPassword], function (err) {
+        res.redirect('/');
     });
 });
 
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
-    const queryResult = await new Promise((resolve, reject) => {
-        connection.query('SELECT * FROM users WHERE username = ?', [username], (error, results) => {
-            resolve(results);
-            });
-        });
-        if (queryResult.length === 0) {
-            res.send('Error logging in');
-            return;
-        }
-        const user = queryResult[0];
-        const validPassword = await bcrypt.compare(password, user.password);
-        if (validPassword) {
-            req.session.user_id = user.id;
-            res.redirect('/secret');
-        } else {
-            res.redirect('/');
-        }
+    const foundUser = await User.findAndValidate(username, password);
+    if (foundUser) {
+        req.session.user_id = foundUser.id;
+        res.redirect('/secret');
+    } else {
+        res.redirect('/');
+    }
 });
 
 app.post('/logout', (req, res) => {
@@ -69,7 +55,7 @@ app.post('/logout', (req, res) => {
     res.redirect('/');
 })
 
-app.get('/secret', requireLogin, (req, res) => {
+app.get('/secret', requireLogin, (req, res, next) => {
     res.render('secret')  
 })
 
