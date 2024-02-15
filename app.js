@@ -18,7 +18,7 @@ app.use(session(sessionConfig));
 
 const requireLogin = (req, res, next) => {
     if(!req.session.user_id){
-        res.redirect('/');
+        return res.redirect('/');
     }
     next();
 }
@@ -44,9 +44,9 @@ app.post('/login', async (req, res) => {
     const foundUser = await User.findAndValidate(username, password);
     if (foundUser) {
         req.session.user_id = foundUser.id;
-        res.redirect('/secret');
+        return res.redirect('/secret');
     } else {
-        res.redirect('/');
+        return res.redirect('/');
     }
 });
 
